@@ -1,0 +1,868 @@
+Here are all the complete corrected files:
+
+---
+
+## infrastructure/environments/sandbox/variables.tf
+```hcl
+variable "environment"   { default = "sandbox" }
+variable "aws_region"    { default = "eu-north-1" }
+variable "account_id"    { default = "435097195861" }
+variable "vpc_id"        {}
+variable "subnet_cidr_a" {}
+variable "subnet_cidr_b" {}
+variable "tgw_id"        {}
+variable "kyndryl_cidr"  {}
+variable "db_host"       {}
+variable "db_port"       {}
+variable "db_service"    {}
+variable "db_user"       { sensitive = true }
+variable "db_password"   { sensitive = true }
+```
+
+## infrastructure/environments/sandbox/terraform.tfvars
+```hcl
+environment   = "sandbox"
+aws_region    = "eu-north-1"
+account_id    = "435097195861"
+vpc_id        = "vpc-09d06790468cc58e9"
+subnet_cidr_a = "172.31.100.0/24"
+subnet_cidr_b = "172.31.101.0/24"
+tgw_id        = "tgw-REPLACE-WITH-REAL-ID"
+kyndryl_cidr  = "192.168.0.0/16"
+db_host       = "192.168.10.50"
+db_port       = "1521"
+db_service    = "psdcprod"
+```
+
+## infrastructure/environments/sandbox/main.tf
+```hcl
+terraform {
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+  }
+  backend "s3" {
+    bucket = "mpan-terraform-state-435097195861"
+    key    = "sandbox/terraform.tfstate"
+    region = "eu-north-1"
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+module "networking" {
+  source        = "../../modules/networking"
+  environment   = var.environment
+  aws_region    = var.aws_region
+  vpc_id        = var.vpc_id
+  subnet_cidr_a = var.subnet_cidr_a
+  subnet_cidr_b = var.subnet_cidr_b
+  tgw_id        = var.tgw_id
+  kyndryl_cidr  = var.kyndryl_cidr
+}
+
+module "ecr" {
+  source      = "../../modules/ecr"
+  environment = var.environment
+}
+
+module "s3" {
+  source               = "../../modules/s3"
+  environment          = var.environment
+  account_id           = var.account_id
+  lambda_function_name = module.lambda.function_name
+  lambda_function_arn  = module.lambda.function_arn
+}
+
+module "lambda" {
+  source             = "../../modules/lambda"
+  environment        = var.environment
+  ecr_repository_url = module.ecr.repository_url
+  subnet_ids         = [module.networking.private_subnet_a_id,
+                        module.networking.private_subnet_b_id]
+  security_group_ids = [module.networking.lambda_sg_id]
+  output_bucket      = module.s3.output_bucket
+  db_host            = var.db_host
+  db_port            = var.db_port
+  db_service         = var.db_service
+  db_user            = var.db_user
+  db_password        = var.db_password
+}
+
+module "codebuild" {
+  source               = "../../modules/codebuild"
+  environment          = var.environment
+  aws_region           = var.aws_region
+  source_bucket        = module.s3.codebuild_source_bucket
+  ecr_repository_url   = module.ecr.repository_url
+  lambda_function_name = module.lambda.function_name
+}
+```
+
+---
+
+## infrastructure/environments/sec/variables.tf
+```hcl
+variable "environment"   { default = "sec" }
+variable "aws_region"    { default = "eu-north-1" }
+variable "account_id"    { default = "529607359136" }
+variable "vpc_id"        {}
+variable "subnet_cidr_a" {}
+variable "subnet_cidr_b" {}
+variable "tgw_id"        {}
+variable "kyndryl_cidr"  {}
+variable "db_host"       {}
+variable "db_port"       {}
+variable "db_service"    {}
+variable "db_user"       { sensitive = true }
+variable "db_password"   { sensitive = true }
+```
+
+## infrastructure/environments/sec/terraform.tfvars
+```hcl
+environment   = "sec"
+aws_region    = "eu-north-1"
+account_id    = "529607359136"
+vpc_id        = "vpc-03cede15377708ead"
+subnet_cidr_a = "172.31.100.0/24"
+subnet_cidr_b = "172.31.101.0/24"
+tgw_id        = "tgw-REPLACE-WITH-REAL-ID"
+kyndryl_cidr  = "192.168.0.0/16"
+db_host       = "192.168.10.50"
+db_port       = "1521"
+db_service    = "psdcprod"
+```
+
+## infrastructure/environments/sec/main.tf
+```hcl
+terraform {
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+  }
+  backend "s3" {
+    bucket = "mpan-terraform-state-529607359136"
+    key    = "sec/terraform.tfstate"
+    region = "eu-north-1"
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+module "networking" {
+  source        = "../../modules/networking"
+  environment   = var.environment
+  aws_region    = var.aws_region
+  vpc_id        = var.vpc_id
+  subnet_cidr_a = var.subnet_cidr_a
+  subnet_cidr_b = var.subnet_cidr_b
+  tgw_id        = var.tgw_id
+  kyndryl_cidr  = var.kyndryl_cidr
+}
+
+module "ecr" {
+  source      = "../../modules/ecr"
+  environment = var.environment
+}
+
+module "s3" {
+  source               = "../../modules/s3"
+  environment          = var.environment
+  account_id           = var.account_id
+  lambda_function_name = module.lambda.function_name
+  lambda_function_arn  = module.lambda.function_arn
+}
+
+module "lambda" {
+  source             = "../../modules/lambda"
+  environment        = var.environment
+  ecr_repository_url = module.ecr.repository_url
+  subnet_ids         = [module.networking.private_subnet_a_id,
+                        module.networking.private_subnet_b_id]
+  security_group_ids = [module.networking.lambda_sg_id]
+  output_bucket      = module.s3.output_bucket
+  db_host            = var.db_host
+  db_port            = var.db_port
+  db_service         = var.db_service
+  db_user            = var.db_user
+  db_password        = var.db_password
+}
+
+module "codebuild" {
+  source               = "../../modules/codebuild"
+  environment          = var.environment
+  aws_region           = var.aws_region
+  source_bucket        = module.s3.codebuild_source_bucket
+  ecr_repository_url   = module.ecr.repository_url
+  lambda_function_name = module.lambda.function_name
+}
+```
+
+---
+
+## infrastructure/environments/prim/variables.tf
+```hcl
+variable "environment"   { default = "prim" }
+variable "aws_region"    { default = "eu-north-1" }
+variable "account_id"    { default = "573979277571" }
+variable "vpc_id"        {}
+variable "subnet_cidr_a" {}
+variable "subnet_cidr_b" {}
+variable "tgw_id"        {}
+variable "kyndryl_cidr"  {}
+variable "db_host"       {}
+variable "db_port"       {}
+variable "db_service"    {}
+variable "db_user"       { sensitive = true }
+variable "db_password"   { sensitive = true }
+```
+
+## infrastructure/environments/prim/terraform.tfvars
+```hcl
+environment   = "prim"
+aws_region    = "eu-north-1"
+account_id    = "573979277571"
+vpc_id        = "vpc-01ebbc118a97cd48a"
+subnet_cidr_a = "172.31.100.0/24"
+subnet_cidr_b = "172.31.101.0/24"
+tgw_id        = "tgw-REPLACE-WITH-REAL-ID"
+kyndryl_cidr  = "192.168.0.0/16"
+db_host       = "192.168.10.50"
+db_port       = "1521"
+db_service    = "psdcprod"
+```
+
+## infrastructure/environments/prim/main.tf
+```hcl
+terraform {
+  required_providers {
+    aws = { source = "hashicorp/aws", version = "~> 5.0" }
+  }
+  backend "s3" {
+    bucket = "mpan-terraform-state-573979277571"
+    key    = "prim/terraform.tfstate"
+    region = "eu-north-1"
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+module "networking" {
+  source        = "../../modules/networking"
+  environment   = var.environment
+  aws_region    = var.aws_region
+  vpc_id        = var.vpc_id
+  subnet_cidr_a = var.subnet_cidr_a
+  subnet_cidr_b = var.subnet_cidr_b
+  tgw_id        = var.tgw_id
+  kyndryl_cidr  = var.kyndryl_cidr
+}
+
+module "ecr" {
+  source      = "../../modules/ecr"
+  environment = var.environment
+}
+
+module "s3" {
+  source               = "../../modules/s3"
+  environment          = var.environment
+  account_id           = var.account_id
+  lambda_function_name = module.lambda.function_name
+  lambda_function_arn  = module.lambda.function_arn
+}
+
+module "lambda" {
+  source             = "../../modules/lambda"
+  environment        = var.environment
+  ecr_repository_url = module.ecr.repository_url
+  subnet_ids         = [module.networking.private_subnet_a_id,
+                        module.networking.private_subnet_b_id]
+  security_group_ids = [module.networking.lambda_sg_id]
+  output_bucket      = module.s3.output_bucket
+  db_host            = var.db_host
+  db_port            = var.db_port
+  db_service         = var.db_service
+  db_user            = var.db_user
+  db_password        = var.db_password
+}
+
+module "codebuild" {
+  source               = "../../modules/codebuild"
+  environment          = var.environment
+  aws_region           = var.aws_region
+  source_bucket        = module.s3.codebuild_source_bucket
+  ecr_repository_url   = module.ecr.repository_url
+  lambda_function_name = module.lambda.function_name
+}
+```
+
+---
+
+## infrastructure/modules/lambda/main.tf
+```hcl
+resource "aws_iam_role" "this" {
+  name = "mpan-validation-lambda-role-${var.environment}"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "basic" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "vpc" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaVPCAccessExecutionRole"
+}
+
+resource "aws_iam_role_policy_attachment" "s3" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ecr" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_lambda_function" "this" {
+  function_name = "mpan-validation-${var.environment}"
+  package_type  = "Image"
+  image_uri     = "${var.ecr_repository_url}:latest"
+  role          = aws_iam_role.this.arn
+  timeout       = 900
+  memory_size   = 2048
+
+  vpc_config {
+    subnet_ids         = var.subnet_ids
+    security_group_ids = var.security_group_ids
+  }
+
+  environment {
+    variables = {
+      OUTPUT_BUCKET = var.output_bucket
+      DB_HOST       = var.db_host
+      DB_PORT       = var.db_port
+      DB_SERVICE    = var.db_service
+      DB_USER       = var.db_user
+      DB_PASSWORD   = var.db_password
+      ENVIRONMENT   = var.environment
+      TNS_ADMIN     = "/opt/oracle/instantclient_21_15/network/admin"
+      ORACLE_HOME   = "/opt/oracle/instantclient_21_15"
+      LD_LIBRARY_PATH = "/opt/oracle/instantclient_21_15"
+    }
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "mpan-validation"
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.basic,
+    aws_iam_role_policy_attachment.vpc,
+    aws_iam_role_policy_attachment.s3,
+    aws_iam_role_policy_attachment.ecr
+  ]
+}
+
+resource "aws_cloudwatch_log_group" "this" {
+  name              = "/aws/lambda/mpan-validation-${var.environment}"
+  retention_in_days = var.environment == "prim" ? 90 : 30
+
+  tags = {
+    Environment = var.environment
+    Project     = "mpan-validation"
+  }
+}
+```
+
+## infrastructure/modules/lambda/variables.tf
+```hcl
+variable "environment"        {}
+variable "ecr_repository_url" {}
+variable "subnet_ids"         { type = list(string) }
+variable "security_group_ids" { type = list(string) }
+variable "output_bucket"      {}
+variable "db_host"            {}
+variable "db_port"            {}
+variable "db_service"         {}
+variable "db_user"            { sensitive = true }
+variable "db_password"        { sensitive = true }
+```
+
+## infrastructure/modules/lambda/outputs.tf
+```hcl
+output "function_name" { value = aws_lambda_function.this.function_name }
+output "function_arn"  { value = aws_lambda_function.this.arn }
+output "role_name"     { value = aws_iam_role.this.name }
+```
+
+---
+
+## .github/workflows/deploy-sandbox.yml
+```yaml
+name: Deploy to Sandbox
+
+on:
+  push:
+    branches: [develop]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: sandbox
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::435097195861:role/lz-glo-iam-rol-c_pa
+          aws-region: eu-north-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/sandbox
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infrastructure/environments/sandbox
+        run: |
+          terraform plan \
+            -var="db_user=${{ secrets.DB_USER }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}"
+
+      - name: Terraform Apply
+        working-directory: infrastructure/environments/sandbox
+        run: |
+          terraform apply -auto-approve \
+            -var="db_user=${{ secrets.DB_USER }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}"
+
+      - name: Package Code
+        run: |
+          cd src
+          zip -r ../code.zip . \
+            --exclude "*.pyc" \
+            --exclude "__pycache__/*" \
+            --exclude ".env"
+          cd ..
+          echo "✅ Code packaged"
+
+      - name: Upload to S3
+        run: |
+          BUCKET="mpan-validation-codebuild-sandbox-435097195861"
+          aws s3 cp code.zip s3://$BUCKET/code.zip
+          aws s3 cp docker/tnsnames.ora s3://$BUCKET/tnsnames.ora
+          zip source.zip docker/Dockerfile buildspec.yml
+          aws s3 cp source.zip s3://$BUCKET/source.zip
+          echo "✅ Files uploaded to S3"
+
+      - name: Trigger CodeBuild
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name mpan-validation-build-sandbox \
+            --region eu-north-1 \
+            --query 'build.id' \
+            --output text)
+
+          echo "Build ID: $BUILD_ID"
+
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds \
+              --ids $BUILD_ID \
+              --region eu-north-1 \
+              --query 'builds[0].buildStatus' \
+              --output text)
+            echo "$(date): $STATUS"
+            [ "$STATUS" = "SUCCEEDED" ] || \
+            [ "$STATUS" = "FAILED" ]    || \
+            [ "$STATUS" = "STOPPED" ]   && break
+            sleep 30
+          done
+
+          if [ "$STATUS" != "SUCCEEDED" ]; then
+            echo "❌ Build failed!"
+            exit 1
+          fi
+
+          echo "✅ Sandbox deployment complete!"
+```
+
+---
+
+## .github/workflows/deploy-sec.yml
+```yaml
+name: Deploy to Sec (Staging)
+
+on:
+  push:
+    branches: [staging]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: sec
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::529607359136:role/lz-glo-iam-rol-c_pa
+          aws-region: eu-north-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/sec
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infrastructure/environments/sec
+        run: |
+          terraform plan \
+            -var="db_user=${{ secrets.DB_USER }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}"
+
+      - name: Terraform Apply
+        working-directory: infrastructure/environments/sec
+        run: |
+          terraform apply -auto-approve \
+            -var="db_user=${{ secrets.DB_USER }}" \
+            -var="db_password=${{ secrets.DB_PASSWORD }}"
+
+      - name: Package Code
+        run: |
+          cd src
+          zip -r ../code.zip . \
+            --exclude "*.pyc" \
+            --exclude "__pycache__/*" \
+            --exclude ".env"
+          cd ..
+          echo "✅ Code packaged"
+
+      - name: Upload to S3
+        run: |
+          BUCKET="mpan-validation-codebuild-sec-529607359136"
+          aws s3 cp code.zip s3://$BUCKET/code.zip
+          aws s3 cp docker/tnsnames.ora s3://$BUCKET/tnsnames.ora
+          zip source.zip docker/Dockerfile buildspec.yml
+          aws s3 cp source.zip s3://$BUCKET/source.zip
+          echo "✅ Files uploaded to S3"
+
+      - name: Trigger CodeBuild
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name mpan-validation-build-sec \
+            --region eu-north-1 \
+            --query 'build.id' \
+            --output text)
+
+          echo "Build ID: $BUILD_ID"
+
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds \
+              --ids $BUILD_ID \
+              --region eu-north-1 \
+              --query 'builds[0].buildStatus' \
+              --output text)
+            echo "$(date): $STATUS"
+            [ "$STATUS" = "SUCCEEDED" ] || \
+            [ "$STATUS" = "FAILED" ]    || \
+            [ "$STATUS" = "STOPPED" ]   && break
+            sleep 30
+          done
+
+          if [ "$STATUS" != "SUCCEEDED" ]; then
+            echo "❌ Build failed!"
+            exit 1
+          fi
+
+          echo "✅ Sec deployment complete!"
+```
+
+---
+
+## .github/workflows/deploy-prim.yml
+```yaml
+name: Deploy to Production (Prim)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::573979277571:role/lz-glo-iam-rol-c_pa
+          aws-region: eu-north-1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        working-directory: infrastructure/environments/prim
+        run: terraform init
+
+      - name: Terraform Plan
+        working-directory: infrastructure/environments/prim
+        run: |
+          terraform plan \
+            -var="db_user=${{ secrets.PROD_DB_USER }}" \
+            -var="db_password=${{ secrets.PROD_DB_PASSWORD }}"
+
+      - name: Terraform Apply
+        working-directory: infrastructure/environments/prim
+        run: |
+          terraform apply -auto-approve \
+            -var="db_user=${{ secrets.PROD_DB_USER }}" \
+            -var="db_password=${{ secrets.PROD_DB_PASSWORD }}"
+
+      - name: Package Code
+        run: |
+          cd src
+          zip -r ../code.zip . \
+            --exclude "*.pyc" \
+            --exclude "__pycache__/*" \
+            --exclude ".env"
+          cd ..
+          echo "✅ Code packaged"
+
+      - name: Upload to S3
+        run: |
+          BUCKET="mpan-validation-codebuild-prim-573979277571"
+          aws s3 cp code.zip s3://$BUCKET/code.zip
+          aws s3 cp docker/tnsnames.ora s3://$BUCKET/tnsnames.ora
+          zip source.zip docker/Dockerfile buildspec.yml
+          aws s3 cp source.zip s3://$BUCKET/source.zip
+          echo "✅ Files uploaded to S3"
+
+      - name: Trigger CodeBuild
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name mpan-validation-build-prim \
+            --region eu-north-1 \
+            --query 'build.id' \
+            --output text)
+
+          echo "Build ID: $BUILD_ID"
+
+          while true; do
+            STATUS=$(aws codebuild batch-get-builds \
+              --ids $BUILD_ID \
+              --region eu-north-1 \
+              --query 'builds[0].buildStatus' \
+              --output text)
+            echo "$(date): $STATUS"
+            [ "$STATUS" = "SUCCEEDED" ] || \
+            [ "$STATUS" = "FAILED" ]    || \
+            [ "$STATUS" = "STOPPED" ]   && break
+            sleep 30
+          done
+
+          if [ "$STATUS" != "SUCCEEDED" ]; then
+            echo "❌ Production build failed!"
+            exit 1
+          fi
+
+          echo "✅ Production deployment complete!"
+```
+
+---
+
+## GitHub Secrets to Add
+
+```
+Go to: GitHub repo → Settings → Secrets → Actions
+
+Add these secrets:
+
+# For Sandbox + Sec environments
+DB_USER          → your Oracle DB username
+DB_PASSWORD      → your Oracle DB password
+
+# For Production (prim)
+PROD_DB_USER     → production Oracle DB username
+PROD_DB_PASSWORD → production Oracle DB password
+```
+
+---
+
+## Complete Summary of All Files
+
+```
+infrastructure/
+├── modules/
+│   ├── networking/
+│   │   ├── main.tf       ← NO CHANGE NEEDED
+│   │   ├── variables.tf  ← NO CHANGE NEEDED
+│   │   └── outputs.tf    ← NO CHANGE NEEDED
+│   ├── ecr/
+│   │   ├── main.tf       ← NO CHANGE NEEDED
+│   │   ├── variables.tf  ← NO CHANGE NEEDED
+│   │   └── outputs.tf    ← NO CHANGE NEEDED
+│   ├── s3/
+│   │   ├── main.tf       ← NO CHANGE NEEDED
+│   │   ├── variables.tf  ← NO CHANGE NEEDED
+│   │   └── outputs.tf    ← NO CHANGE NEEDED
+│   ├── lambda/
+│   │   ├── main.tf       ← UPDATED ✅
+│   │   ├── variables.tf  ← UPDATED ✅
+│   │   └── outputs.tf    ← NO CHANGE NEEDED
+│   └── codebuild/
+│       ├── main.tf       ← NO CHANGE NEEDED
+│       ├── variables.tf  ← NO CHANGE NEEDED
+│       └── outputs.tf    ← NO CHANGE NEEDED
+└── environments/
+    ├── sandbox/
+    │   ├── main.tf           ← UPDATED ✅
+    │   ├── variables.tf      ← UPDATED ✅
+    │   └── terraform.tfvars  ← NO CHANGE NEEDED
+    ├── sec/
+    │   ├── main.tf           ← UPDATED ✅
+    │   ├── variables.tf      ← UPDATED ✅
+    │   └── terraform.tfvars  ← NO CHANGE NEEDED
+    └── prim/
+        ├── main.tf           ← UPDATED ✅
+        ├── variables.tf      ← UPDATED ✅
+        └── terraform.tfvars  ← NO CHANGE NEEDED
+
+.github/workflows/
+├── deploy-sandbox.yml  ← UPDATED ✅
+├── deploy-sec.yml      ← UPDATED ✅
+└── deploy-prim.yml     ← UPDATED ✅
+```
+
+Copy all these files into your project and you're ready to push to GitHub!
+def lambda_handler(event, context):
+    
+    logger.info("="*80)
+    logger.info("MPAN VALIDATION - STARTING")
+    logger.info(f"Environment: {os.environ.get('ENVIRONMENT', 'unknown')}")
+    logger.info("="*80)
+    
+    # 1. Validate event has Records
+    if "Records" not in event:
+        logger.error("No Records in event - must be triggered by S3")
+        raise ValueError("Event must contain Records - trigger via S3 upload")
+    
+    # 2. Extract S3 file info
+    record = event["Records"][0]
+    src_bucket = record["s3"]["bucket"]["name"]
+    src_key = record["s3"]["object"]["key"]
+    
+    logger.info(f"Input bucket: {src_bucket}")
+    logger.info(f"Input file:   {src_key}")
+    
+    # 3. Download file to /tmp
+    filename = os.path.basename(src_key)
+    local_input = f"/tmp/{filename}"
+    
+    logger.info(f"Downloading to {local_input}...")
+    s3.download_file(src_bucket, src_key, local_input)
+    logger.info("✅ File downloaded")
+    
+    # 4. Define output path
+    output_filename = filename.replace(".xlsx", "_Updated.xlsx")
+    local_output = f"/tmp/{output_filename}"
+    
+    # 5. Process file
+    logger.info("Starting processing...")
+    output_path = process_allocation_file(local_input, local_output)
+    
+    if not output_path:
+        raise Exception("Processing failed - no output generated")
+    
+    logger.info(f"✅ Processing complete: {output_path}")
+    
+    # 6. Upload output to S3
+    dest_bucket = os.environ["OUTPUT_BUCKET"]
+    dest_key = f"results/{os.path.basename(output_path)}"
+    
+    logger.info(f"Uploading to s3://{dest_bucket}/{dest_key}...")
+    s3.upload_file(output_path, dest_bucket, dest_key)
+    logger.info("✅ Output uploaded")
+    
+    # 7. Cleanup /tmp
+    try:
+        os.remove(local_input)
+        os.remove(output_path)
+    except:
+        pass
+    
+    logger.info("✅ MPAN Validation complete!")
+    
+    return {
+        "status": "success",
+        "input_file": src_key,
+        "output_file": dest_key,
+        "output_bucket": dest_bucket,
+        "environment": os.environ.get("ENVIRONMENT", "unknown")
+    }
+```
+
+---
+
+## What Changed
+```
+Old Code                          New Code
+────────────────────────────────────────────────────
+No Records validation         →   Proper error message
+Hardcoded output filename     →   Dynamic based on input
+No logging                    →   Full CloudWatch logging
+No cleanup                    →   Removes /tmp files after
+No environment info           →   Logs which env is running
+```
+
+---
+
+## How to Update the File
+
+On your Windows machine:
+```
+1. Open src/lambda_function.py in VS Code
+2. Find the lambda_handler function
+3. Replace it with the updated version above
+4. Save the file
+5. Git commit and push
